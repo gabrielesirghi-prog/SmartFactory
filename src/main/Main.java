@@ -1,25 +1,17 @@
 package main;
 import java.util.ArrayList;
-import java.util.List;
 
-/**
- * Usage (all arguments are optional):
- *   java Main [products] [assemblyMachines] [testingStations] [packagingStations]
- * Default: 20 products, 3 assembly machines, 2 testing stations, 2 packaging stations.
- */
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        int numProducts = args.length > 0 ? Integer.parseInt(args[0]) : 20;
-        int assemblyMachines = args.length > 1 ? Integer.parseInt(args[1]) : 3;
-        int testingStations = args.length > 2 ? Integer.parseInt(args[2]) : 2;
-        int packagingStations = args.length > 3 ? Integer.parseInt(args[3]) : 2;
-
-        System.out.println("Factory: " + assemblyMachines + " assembly, "
-                + testingStations + " testing, " + packagingStations + " packaging, "
-                + numProducts + " products.");
+        // Per i test cambia questi numeri
+        int numProducts = 100;
+        int assemblyMachines = 3;
+        int testingStations = 2;
+        int packagingStations = 2;
 
         SmartFactory factory = new SmartFactory(assemblyMachines, testingStations, packagingStations);
-        List<Product> products = new ArrayList<>();
+
+        ArrayList<Product> products = new ArrayList<>();
         for (int i = 1; i <= numProducts; i++) {
             products.add(new Product(i, factory));
         }
@@ -30,14 +22,13 @@ public class Main {
             p.start();
         }
         for (Product p : products) {
-            p.join();          // wait for every product to finish
+            p.join();   // aspetta che ogni prodotto finisca
         }
 
-        long elapsed = System.currentTimeMillis() - start;
+        long end = System.currentTimeMillis();
 
-        factory.printCapacityReport();
-        System.out.println("Finished products: " + factory.getFinishedProducts() + "/" + numProducts);
-        System.out.println("Total time: " + elapsed + " ms");
+        System.out.println("Finished products: " + factory.getFinishedProducts());
+        System.out.println("Total time: " + (end - start) + " ms");
         System.out.println("Production completed.");
     }
 }

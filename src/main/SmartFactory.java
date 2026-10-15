@@ -1,91 +1,64 @@
 package main;
+import java.util.Random;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * The factory: it owns the three limited resources (one semaphore each)
- * and the methods that the products use to go through the production stages.
- */
-public class SmartFactory {
-
-    /** One type of resource (assembly machines, testing stations, ...). */
-    private static class Stage {
-        private final String name;          // e.g. "assembly machine"
-        private final String doing;         // e.g. "assembly"
-        private final Semaphore permits;    // one permit = one free machine
-        private final AtomicInteger inUse = new AtomicInteger(0);
-        private final AtomicInteger maxInUse = new AtomicInteger(0);
-        private final int minTime;
-        private final int maxTime;
-
-        Stage(String name, String doing, int capacity, int minTime, int maxTime) {
-            this.name = name;
-            this.doing = doing;
-            this.permits = new Semaphore(capacity);
-            this.minTime = minTime;
-            this.maxTime = maxTime;
-        }
-
-        void process(int productId) throws InterruptedException {
-            System.out.println("Product " + productId + " is waiting for " + article() + " " + name + ".");
-            permits.acquire();                       // wait for a free machine
-            try {
-                int now = inUse.incrementAndGet();
-                maxInUse.accumulateAndGet(now, Math::max);
-                System.out.println("Product " + productId + " started " + doing + ".");
-                int time = ThreadLocalRandom.current().nextInt(minTime, maxTime + 1);
-                Thread.sleep(time);                  // simulate processing time
-                System.out.println("Product " + productId + " completed " + doing + ".");
-            } finally {
-                inUse.decrementAndGet();
-                permits.release();                   // always give the machine back
-            }
-        }
-
-        private String article() {
-            return name.startsWith("a") ? "an" : "a";
-        }
-    }
-
-    private final Stage assembly;
-    private final Stage testing;
-    private final Stage packaging;
-    private int finishedProducts = 0;   // shared counter -> needs synchronization
+// La fabbrica: contiene le risorse limitate (un semaforo per ognuna)
+class SmartFactory {
+    private Semaphore assembly;    // macchine di assemblaggio
+    private Semaphore testing;     // postazioni di test
+    private Semaphore packaging;   // postazioni di imballaggio
+    private Random random = new Random();
+    private int finishedProducts = 0;   // contatore condiviso da tutti i thread
 
     public SmartFactory(int assemblyMachines, int testingStations, int packagingStations) {
-        assembly = new Stage("assembly machine", "assembly", assemblyMachines, 500, 1000);
-        testing = new Stage("testing station", "testing", testingStations, 300, 700);
-        packaging = new Stage("packaging station", "packaging", packagingStations, 200, 500);
+        assembly = new Semaphore(assemblyMachines);
+        testing = new Semaphore(testingStations);
+        packaging = new Semaphore(packagingStations);
     }
 
-    public void assemble(int productId) throws InterruptedException {
-        assembly.process(productId);
+    public void assemble(int id) throws InterruptedException {
+        System.out.println("Product " + id + " is waiting for an assembly machine.");
+        assembly.acquire();
+        try {
+            System.out.println("Product " + id + " started assembly.");
+            Thread.sleep(500 + random.nextInt(501));   // da 500 a 1000 ms
+            System.out.println("Product " + id + " completed assembly.");
+        } finally {
+            assembly.release();
+        }
     }
 
-    public void test(int productId) throws InterruptedException {
-        testing.process(productId);
+    public void test(int id) throws InterruptedException {
+        System.out.println("Product " + id + " is waiting for a testing station.");
+        testing.acquire();
+        try {
+            System.out.println("Product " + id + " started testing.");
+            Thread.sleep(300 + random.nextInt(401));   // da 300 a 700 ms
+            System.out.println("Product " + id + " completed testing.");
+        } finally {
+            testing.release();
+        }
     }
 
-    public void pack(int productId) throws InterruptedException {
-        packaging.process(productId);
+    public void pack(int id) throws InterruptedException {
+        System.out.println("Product " + id + " is waiting for a packaging station.");
+        packaging.acquire();
+        try {
+            System.out.println("Product " + id + " started packaging.");
+            Thread.sleep(200 + random.nextInt(301));   // da 200 a 500 ms
+            System.out.println("Product " + id + " completed packaging.");
+        } finally {
+            packaging.release();
+        }
     }
 
-    /** Critical section: many threads update the same counter. */
-    public synchronized void productFinished(int productId) {
+    // synchronized: due thread non possono aggiornare il contatore insieme
+    public synchronized void productFinished(int id) {
         finishedProducts++;
-        System.out.println("Product " + productId + " is finished. (" + finishedProducts + " done)");
+        System.out.println("Product " + id + " is finished.");
     }
 
-    public synchronized int getFinishedProducts() {
+    public int getFinishedProducts() {
         return finishedProducts;
-    }
-
-    /** Used by Main to check that the capacities were never exceeded. */
-    public void printCapacityReport() {
-        System.out.println("Maximum machines used at the same time:");
-        System.out.println("  assembly:  " + assembly.maxInUse.get() + " (capacity " + assembly.permits.availablePermits() + ")");
-        System.out.println("  testing:   " + testing.maxInUse.get() + " (capacity " + testing.permits.availablePermits() + ")");
-        System.out.println("  packaging: " + packaging.maxInUse.get() + " (capacity " + packaging.permits.availablePermits() + ")");
     }
 }
